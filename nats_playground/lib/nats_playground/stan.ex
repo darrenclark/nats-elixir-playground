@@ -34,6 +34,7 @@ defmodule Stan do
 
     state = %{
       gnat: gnat,
+      client_id: conn_req.clientID,
       conn_id: conn_req.connID,
       pub_prefix: conn_resp.pubPrefix,
       topic_heartbeat: conn_req.heartbeatInbox,
@@ -44,9 +45,18 @@ defmodule Stan do
       topic_unsub: conn_resp.unsubRequests
     }
 
+    Process.flag(:trap_exit, true)
+
     {:ok, state}
   end
 
+  @impl true
+  def terminate(_reason, state) do
+    request(state.gnat, state.topic_close, Pb.CloseRequest.new(clientID: state.client_id))
+    :ok
+  end
+
+  @impl true
   def handle_info({:msg, %{topic: topic}}, %{topic_heartbeat: topic} = state) do
     {:ok, _} = request(state.gnat, state.topic_ping, Pb.Ping.new(connID: state.conn_id))
     {:noreply, state}
@@ -73,5 +83,6 @@ defmodule Stan do
 
   defp response_module(request_type)
   defp response_module(Pb.ConnectRequest), do: Pb.ConnectResponse
+  defp response_module(Pb.CloseRequest), do: Pb.CloseResponse
   defp response_module(Pb.Ping), do: Pb.PingResponse
 end
