@@ -22,7 +22,9 @@ defmodule NatsPlayground.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:gnat, "~> 0.7.0"}
+      {:gnat, "~> 0.7.0"},
+      {:protobuf, "~> 0.7.0"},
+      {:google_protos, "~> 0.1.0"}
     ]
   end
 end

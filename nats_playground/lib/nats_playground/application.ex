@@ -9,7 +9,8 @@ defmodule NatsPlayground.Application do
     children = [
       # Starts a worker by calling: NatsPlayground.Worker.start_link(arg)
       # {NatsPlayground.Worker, arg}
-      {NatsPlayground.Demo, []}
+      {NatsPlayground.Demo, []},
+      {Stan, [connection_settings: %{host: '127.0.0.1', port: 4223}]},
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
