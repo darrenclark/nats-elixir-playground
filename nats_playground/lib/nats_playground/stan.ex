@@ -58,7 +58,7 @@ defmodule Stan do
       heartbeatInbox: "_HEARTBEAT.#{nuid()}",
       protocol: 1,
       connID: nuid(),
-      pingInterval: 20,
+      pingInterval: 120,
       pingMaxOut: 3
     )
 
