@@ -27,6 +27,14 @@ defmodule Stan do
     GenServer.call(stan, {:sub, subscriber, subject, opts})
   end
 
+  def unsub(stan, subscription) do
+    GenServer.call(stan, {:unsub, :unsub, subscription})
+  end
+
+  def close(stan, subscription) do
+    GenServer.call(stan, {:unsub, :close, subscription})
+  end
+
   def ack(stan, ack) do
     GenServer.call(stan, {:ack, ack})
   end
@@ -46,7 +54,7 @@ defmodule Stan do
   @impl true
   def init(%{gnat: gnat} = opts) do
     conn_req = Pb.ConnectRequest.new(
-      clientID: nuid(),
+      clientID: opts[:client_id] || nuid(),
       heartbeatInbox: "_HEARTBEAT.#{nuid()}",
       protocol: 1,
       connID: nuid(),
@@ -119,11 +127,33 @@ defmodule Stan do
     )
 
     {:ok, resp} = request(state.gnat, state.topic_sub, req)
-    sub = {inbox, resp.ackInbox, gnat_sub, subscriber}
+    sub = Stan.Sub.new(req, resp, gnat_sub, subscriber)
 
     state = %{state | subscriptions: Map.put(state.subscriptions, inbox, sub)}
 
     {:reply, {:ok, sub}, state}
+  end
+
+  @impl true
+  def handle_call({:unsub, kind, sub}, _from, state) do
+    topic =
+      case kind do
+        :close -> state.topic_sub_close
+        :unsub -> state.topic_unsub
+      end
+
+    req = Pb.UnsubscribeRequest.new(
+      clientID: state.client_id,
+      subject: sub.subject,
+      inbox: sub.ack_inbox,
+      durableName: sub.durable_name
+    )
+
+    {:ok, resp} = request(state.gnat, topic, req)
+    :ok = Gnat.unsub(state.gnat, sub.gnat_sub)
+
+    state = %{state | subscriptions: Map.delete(state.subscriptions, sub.inbox)}
+    {:reply, :ok, state}
   end
 
   @impl true
@@ -181,6 +211,7 @@ defmodule Stan do
   defp response_module(Pb.ConnectRequest), do: Pb.ConnectResponse
   defp response_module(Pb.CloseRequest), do: Pb.CloseResponse
   defp response_module(Pb.SubscriptionRequest), do: Pb.SubscriptionResponse
+  defp response_module(Pb.UnsubscribeRequest), do: Pb.SubscriptionResponse
   defp response_module(Pb.PubMsg), do: Pb.PubAck
   defp response_module(Pb.Ping), do: Pb.PingResponse
 
@@ -190,16 +221,16 @@ defmodule Stan do
   defp convert_start_position(:sequence_start), do: :SequenceStart
   defp convert_start_position(:first), do: :First
 
-  defp dispatch_msg({_, ack_inbox, _, subscriber} = _sub, %{body: body} = _msg) do
+  defp dispatch_msg(sub, %{body: body} = _msg) do
     msg_proto = Pb.MsgProto.decode(body)
 
-    ack = {ack_inbox, msg_proto.subject, msg_proto.sequence}
+    ack = {sub.ack_inbox, msg_proto.subject, msg_proto.sequence}
 
     msg = 
       msg_proto
       |> Map.from_struct()
       |> Map.take([:sequence, :subject, :data, :timestamp, :redelivered])
 
-    send(subscriber, {:msg, ack, msg})
+    send(sub.pid, {:msg, ack, msg})
   end
 end
