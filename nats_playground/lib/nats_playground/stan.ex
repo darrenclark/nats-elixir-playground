@@ -94,7 +94,7 @@ defmodule Stan do
       sha256: nil
     )
 
-    gnat_pub(state.gnat, state.pub_prefix <> "." <> subject, msg)
+    {:ok, _} = request(state.gnat, state.pub_prefix <> "." <> subject, msg)
 
     {:reply, :ok, state}
   end
@@ -181,6 +181,7 @@ defmodule Stan do
   defp response_module(Pb.ConnectRequest), do: Pb.ConnectResponse
   defp response_module(Pb.CloseRequest), do: Pb.CloseResponse
   defp response_module(Pb.SubscriptionRequest), do: Pb.SubscriptionResponse
+  defp response_module(Pb.PubMsg), do: Pb.PubAck
   defp response_module(Pb.Ping), do: Pb.PingResponse
 
   defp convert_start_position(:new_only), do: :NewOnly
