@@ -136,7 +136,7 @@ defmodule Stan do
   @impl true
   def handle_info({:msg, %{topic: topic} = msg}, %{topic_heartbeat: topic} = state) do
     IO.inspect(msg, label: "#{topic} <<<")
-    {:ok, _} = request(state.gnat, state.topic_ping, Pb.Ping.new(connID: state.conn_id))
+    :ok = gnat_pub(state.gnat, msg.reply_to, Pb.Ping.new(connID: state.conn_id))
     {:noreply, state}
   end
 
